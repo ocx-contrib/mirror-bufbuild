@@ -131,15 +131,15 @@ assets:
     - "^buf-Linux-x86_64\\.tar\\.gz$"
   linux/arm64:
     - "^buf-Linux-aarch64\\.tar\\.gz$"
-  # Pass 2 (darwin) / pass 3 (windows) of the incremental rollout — macOS
-  # minutes cost 10x linux and Windows 2x, so they stay commented until the
-  # linux matrix is end-to-end green. Both `assets:` and `platforms:` are
-  # staged: an `assets:`-only stage still boots the macOS/Windows runners and
-  # greens having tested nothing. Uncommented by hand, never by `sed`.
-  # darwin/amd64:
-  #   - "^buf-Darwin-x86_64\\.tar\\.gz$"
-  # darwin/arm64:
-  #   - "^buf-Darwin-arm64\\.tar\\.gz$"
+  darwin/amd64:
+    - "^buf-Darwin-x86_64\\.tar\\.gz$"
+  darwin/arm64:
+    - "^buf-Darwin-arm64\\.tar\\.gz$"
+  # Pass 3 (windows) of the incremental rollout — Windows minutes cost 2x
+  # linux, so these stay commented until the linux+darwin matrix is
+  # end-to-end green. Both `assets:` and `platforms:` are staged: an
+  # `assets:`-only stage still boots the Windows runners and greens having
+  # tested nothing. Uncommented by hand, never by `sed`.
   # windows/amd64:
   #   - "^buf-Windows-x86_64\\.zip$"
   # windows/arm64:
@@ -251,13 +251,14 @@ platforms:
       - { image: "ubuntu:24.04", shell: bash }
       - { image: "alpine:3.20",  shell: sh }
       - { image: "fedora:40",    shell: bash }
-  # Pass 2 — darwin. `macos-14` for BOTH slices: the Intel slice tests under
-  # Rosetta 2 on the arm64 runner. Never native `macos-13`, whose exhausted
-  # pool leaves the leg queued forever and deadlocks `push` (needs: test).
-  # darwin/amd64:
-  #   runner: macos-14
-  # darwin/arm64:
-  #   runner: macos-14
+  # `macos-14` for BOTH slices: the Intel slice tests under Rosetta 2 on the
+  # arm64 runner. Never native `macos-13`, whose exhausted pool leaves the leg
+  # queued forever and deadlocks `push` (needs: test). No `containers:` — a
+  # non-Linux platform with container legs is rejected at spec load.
+  darwin/amd64:
+    runner: macos-14
+  darwin/arm64:
+    runner: macos-14
   # Pass 3 — windows. `windows-11-arm` is native: the amd64 pool cannot execute
   # an arm64 binary and there is no Rosetta equivalent to lean on.
   # windows/amd64:

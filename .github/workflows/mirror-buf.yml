@@ -137,6 +137,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - platform: darwin/amd64
+            platform_slug: darwin_amd64
+            runner: macos-14
+            container_id: _native_
+            shell: bash
+            tests:
+              - name: smoke
+                kind: script
+                script: buf/tests/smoke.star
+          - platform: darwin/arm64
+            platform_slug: darwin_arm64
+            runner: macos-14
+            container_id: _native_
+            shell: bash
+            tests:
+              - name: smoke
+                kind: script
+                script: buf/tests/smoke.star
           - platform: linux/amd64
             platform_slug: linux_amd64
             runner: ubuntu-latest
