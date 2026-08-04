@@ -135,15 +135,12 @@ assets:
     - "^buf-Darwin-x86_64\\.tar\\.gz$"
   darwin/arm64:
     - "^buf-Darwin-arm64\\.tar\\.gz$"
-  # Pass 3 (windows) of the incremental rollout — Windows minutes cost 2x
-  # linux, so these stay commented until the linux+darwin matrix is
-  # end-to-end green. Both `assets:` and `platforms:` are staged: an
-  # `assets:`-only stage still boots the Windows runners and greens having
-  # tested nothing. Uncommented by hand, never by `sed`.
-  # windows/amd64:
-  #   - "^buf-Windows-x86_64\\.zip$"
-  # windows/arm64:
-  #   - "^buf-Windows-arm64\\.zip$"
+  # windows/arm64 IS published by upstream — verified at v1.70.0, v1.71.0 and
+  # v1.72.0 — so it is declared rather than being the usual silent omission.
+  windows/amd64:
+    - "^buf-Windows-x86_64\\.zip$"
+  windows/arm64:
+    - "^buf-Windows-arm64\\.zip$"
 
 asset_type:
   # Every archive — tar.gz on linux/darwin, zip on windows — wraps its content
@@ -259,14 +256,14 @@ platforms:
     runner: macos-14
   darwin/arm64:
     runner: macos-14
-  # Pass 3 — windows. `windows-11-arm` is native: the amd64 pool cannot execute
-  # an arm64 binary and there is no Rosetta equivalent to lean on.
-  # windows/amd64:
-  #   runner: windows-latest
-  #   shell: pwsh
-  # windows/arm64:
-  #   runner: windows-11-arm
-  #   shell: pwsh
+  # `windows-11-arm` is native: the amd64 pool cannot execute an arm64 binary
+  # and there is no Rosetta equivalent to lean on.
+  windows/amd64:
+    runner: windows-latest
+    shell: pwsh
+  windows/arm64:
+    runner: windows-11-arm
+    shell: pwsh
 
 # Extra OCI annotations on every published index. `image.source` and
 # `.revision` are auto-detected from CI; the SPDX id is the Phase 1.5 verdict

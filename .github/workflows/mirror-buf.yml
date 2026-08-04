@@ -227,6 +227,24 @@ jobs:
               - name: smoke
                 kind: script
                 script: buf/tests/smoke.star
+          - platform: windows/amd64
+            platform_slug: windows_amd64
+            runner: windows-latest
+            container_id: _native_
+            shell: pwsh
+            tests:
+              - name: smoke
+                kind: script
+                script: buf/tests/smoke.star
+          - platform: windows/arm64
+            platform_slug: windows_arm64
+            runner: windows-11-arm
+            container_id: _native_
+            shell: pwsh
+            tests:
+              - name: smoke
+                kind: script
+                script: buf/tests/smoke.star
 
     runs-on: ${{ matrix.runner }}
     steps:
