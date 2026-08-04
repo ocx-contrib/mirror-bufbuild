@@ -209,7 +209,7 @@ versions:
   # hit the GitHub releases API in the same minute. WITHOUT this key the
   # generated workflow has no `schedule:` trigger at all and the mirror never
   # auto-discovers a release.
-  poll_interval: "50 */6 * * *"
+  poll_interval: "30 1-23/6 * * *"
 
 tests:
   # `script:` paths resolve from the REPOSITORY ROOT, not from this spec's
