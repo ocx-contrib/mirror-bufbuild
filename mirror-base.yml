@@ -1,0 +1,47 @@
+# Shared base for every spec in this repository.
+#
+# `extends:` is a SHALLOW merge of top-level keys — a child that sets any key
+# below replaces it whole, there is no per-key merge into these blocks. Keep
+# what is genuinely repo-wide here; anything a package owns (name, target,
+# source, assets, asset_type, bin_scan, metadata, catalog, tests, versions,
+# announce) stays in the package's own mirror.yml.
+#
+# Not a spec: it has no `name`/`target`/`source` and is never loaded on its
+# own — only merged under a child.
+#
+# NOTE — `platforms:` is deliberately NOT here. The container matrix is
+# downstream of the libc measurement: putting bare (unqualified) linux keys on
+# `assets:` and keeping the alpine leg are one decision, and splitting them
+# across two files is how a spec ends up claiming an empty `os.features` with
+# no musl leg to contradict it. The evidence comment, the `assets:` keys and
+# the `platforms:` legs therefore live together in buf/mirror.yml. A future
+# Buf package here declares its own.
+
+skip_prereleases: true
+cascade: true
+
+# `date`, not `none`: a cascade tag (`latest`, `X`, `X.Y`) re-points on every
+# re-publish, and without a build segment the new manifest reuses the version
+# tag, orphaning the prior digest for registry GC to reap — which breaks any
+# `@sha256:` pin. The date segment gives each re-publish its own version tag,
+# so the old digest keeps a tag of its own. `datetime` would do the same at
+# second granularity; `date` is enough for a mirror that polls every 6 hours.
+# buf's versions carry no `+build` metadata (`1.72.0`), so the one case that
+# forces `none` does not apply here.
+build_timestamp: date
+
+verify:
+  github_asset_digest: true
+
+concurrency:
+  max_downloads: 8
+  max_bundles: 4
+  max_pushes: 2
+  rate_limit_ms: 100
+  max_retries: 3
+  compression_threads: 0
+
+notify:
+  discord:
+    webhook_secret: OCX_MIRROR_DISCORD_HOOK
+    user_id: "227748867204972545"  # pinged in-message on failures

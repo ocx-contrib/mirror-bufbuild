@@ -1,0 +1,284 @@
+extends: ../mirror-base.yml
+
+name: buf
+
+# Logical index package `bufbuild/buf` lives at the physical path
+# `ghcr.io/ocx-contrib/bufbuild/buf` — slash segments, never hyphen-flattened.
+# The first segment must be this repo's own owner or `GITHUB_TOKEN` cannot
+# create the package. Linkage to this repo comes from the
+# `org.opencontainers.image.source` annotation the pipeline writes.
+target:
+  registry: ghcr.io
+  repository: ocx-contrib/bufbuild/buf
+
+source:
+  type: github_release
+  owner: bufbuild
+  repo: buf
+  # Upstream tags are plain `vX.Y.Z`. Surveyed 2026-08-04 over the newest 100
+  # tags and the newest 100 releases:
+  #
+  #   $ gh api "repos/bufbuild/buf/tags?per_page=100" --jq '.[].name' \
+  #       | grep -cvE '^v[0-9]+\.[0-9]+\.[0-9]+$'
+  #   1                              # the single exception, v1.32.0-beta.1
+  #   $ gh api "repos/bufbuild/buf/releases?per_page=100" \
+  #       --jq '[.[] | select(.prerelease)] | length'
+  #   1
+  #
+  # So buf's tag GRAMMAR is `vX.Y.Z` with exactly one historical `-beta.N`
+  # deviation, 38 minors below this mirror's 1.70.0 floor. The strict pattern
+  # is therefore a description of the grammar, not a smuggled release policy:
+  # `skip_prereleases: true` (mirror-base.yml) remains the knob that decides
+  # what ships, and it independently rejects that one tag — GitHub carries the
+  # `prerelease` flag on it, which is what the filter actually reads
+  # (`src/source/github_release.rs`: `is_prerelease: release.prerelease`).
+  tag_pattern: "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+
+# ─── libc gate (Phase 3.5) — the evidence, not the conclusion ───────────────
+#
+# UPX FIRST, because a packed binary defeats every check below it (the stub
+# leaves no PT_INTERP and no section headers, so `file` calls a glibc-dynamic
+# build "statically linked"). buf is not packed:
+#
+#   $ for f in buf protoc-gen-buf-breaking protoc-gen-buf-lint; do
+#       strings -a x/buf/bin/$f | grep -c '^UPX'; done
+#   0   0   0
+#   $ readelf -h x/buf/bin/buf | grep 'Start of section headers'
+#   Start of section headers: 400 (bytes into file)     # present ⇒ not a stub
+#
+# So the readelf verdict is trustworthy. Measured on the real v1.72.0 assets,
+# both arches, all three shipped executables:
+#
+#   $ file x/buf/bin/buf
+#   ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked,
+#   Go BuildID=yFM0IkrL…, BuildID[sha1]=6b6988b2…, stripped
+#   $ file xa/buf/bin/buf
+#   ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically
+#   linked, Go BuildID=Lbsz_a0z…, BuildID[sha1]=e5c66f64…, stripped
+#
+#   $ for f in buf protoc-gen-buf-breaking protoc-gen-buf-lint; do
+#       readelf -l x{,a}/buf/bin/$f | grep -cE 'INTERP|DYNAMIC'; done
+#   0  (all six binaries — no PT_INTERP, no PT_DYNAMIC)
+#   $ ldd x/buf/bin/buf
+#   not a dynamic executable
+#
+# Statically linked on BOTH arches ⇒ the artifact requires NOTHING of the host
+# userland ⇒ the linux keys carry NO `+libc.*` suffix. `os.features` is a
+# REQUIREMENT, not a build label: tagging these `+libc.musl` would be a false
+# requirement that hides a binary from every glibc host it runs on perfectly
+# well. The alpine leg under `platforms:` is what makes the bare (universal)
+# claim honest rather than merely asserted — drop it and nothing in this repo
+# ever contradicts the claim.
+#
+# ─── Archive choice (Phase 3): the FHS TREE, not the raw binary ─────────────
+#
+# Upstream ships two structurally different artifacts per platform, and this
+# spec takes the tarball/zip. The decisive measurement is that they share the
+# same `buf`, byte for byte:
+#
+#   $ sha256sum buf-Linux-x86_64  x/buf/bin/buf
+#   8720830e26a733da55bb89bcd3cb44849c0965fc0c44fb5d691cccdc64dca5af  buf-Linux-x86_64
+#   8720830e26a733da55bb89bcd3cb44849c0965fc0c44fb5d691cccdc64dca5af  x/buf/bin/buf
+#
+# so the archive is a strict SUPERSET of the raw asset, never a different
+# build. What the superset adds:
+#
+#   $ tar tzf buf-Linux-x86_64.tar.gz | grep -v '/man1/'
+#   buf/  buf/bin/{buf,protoc-gen-buf-breaking,protoc-gen-buf-lint}
+#   buf/etc/bash_completion.d/buf   buf/share/fish/vendor_completions.d/buf.fish
+#   buf/share/zsh/site-functions/_buf   buf/share/man/man1/*.1  (122 pages)
+#   buf/LICENSE
+#
+# — two extra executables (the protoc plugins buf's own protoc-integration
+# docs tell users to install), the shell completions, the man pages, and the
+# upstream Apache-2.0 text in-band. Taking the raw asset would have shipped
+# one third of the tool's published interface.
+#
+# Two secondary measurements pointed the same way:
+#   • The archive already carries mode 0755 on all three binaries, while
+#     GitHub serves the raw asset 0644 (`stat -c %a buf-Linux-x86_64` → 644),
+#     so the raw route would have made `binaries:` load-bearing for the chmod.
+#   • The layout is UNIFORM — `buf/{bin,LICENSE}` on all six declarable
+#     platforms and all three in-range versions (windows adds `.exe` stems and
+#     drops etc/share; nothing else differs) — so ONE `strip_components: 1`
+#     and ONE metadata.json cover the matrix, with no per-platform override.
+#
+# ─── Asset scope (Phase 2, both directions) ────────────────────────────────
+#
+# Each regex was checked to match EXACTLY ONE asset at v1.70.0 (the floor),
+# v1.71.0 and v1.72.0 (newest) — 0 matches is a SILENT skip, so the check has
+# to run forward — and the inverse pass enumerated every remaining asset to
+# confirm it is deliberately out of scope:
+#
+#   buf-<OS>-<ARCH>                       raw single binary — superseded, see above
+#   buf-Windows-<ARCH>.exe                raw single binary — superseded
+#   protoc-gen-buf-{lint,breaking}-*      the SAME two plugins the archive already
+#                                         ships under bin/; standalone raw copies
+#   buf-Linux-{armv7,ppc64le,riscv64,s390x}.*   no OCX Architecture enum member
+#   buf-{FreeBSD,OpenBSD}-*                     no OCX OperatingSystem enum member
+#   sha256.txt / sha256.txt.minisig       aggregate digest manifest + minisign
+#                                         signature (NOT per-asset sidecars);
+#                                         `verify.github_asset_digest` reads
+#                                         GitHub's own asset digest instead
+#
+# START-anchoring on `^buf-` is load-bearing here and not decoration: the
+# `protoc-gen-buf-lint-Linux-x86_64` / `protoc-gen-buf-breaking-Linux-x86_64`
+# assets sit at the SAME top level in every release, so an unanchored
+# `buf-Linux-x86_64` substring pattern matches three assets, and END-anchoring
+# on `\.tar\.gz$` is what separates the archive from its raw twin.
+assets:
+  linux/amd64:
+    - "^buf-Linux-x86_64\\.tar\\.gz$"
+  linux/arm64:
+    - "^buf-Linux-aarch64\\.tar\\.gz$"
+  # Pass 2 (darwin) / pass 3 (windows) of the incremental rollout — macOS
+  # minutes cost 10x linux and Windows 2x, so they stay commented until the
+  # linux matrix is end-to-end green. Both `assets:` and `platforms:` are
+  # staged: an `assets:`-only stage still boots the macOS/Windows runners and
+  # greens having tested nothing. Uncommented by hand, never by `sed`.
+  # darwin/amd64:
+  #   - "^buf-Darwin-x86_64\\.tar\\.gz$"
+  # darwin/arm64:
+  #   - "^buf-Darwin-arm64\\.tar\\.gz$"
+  # windows/amd64:
+  #   - "^buf-Windows-x86_64\\.zip$"
+  # windows/arm64:
+  #   - "^buf-Windows-arm64\\.zip$"
+
+asset_type:
+  # Every archive — tar.gz on linux/darwin, zip on windows — wraps its content
+  # in a single `buf/` directory on all three in-range versions, so one global
+  # rule rather than per-platform overrides. Stripping it puts `bin/` directly
+  # under `${installPath}`, which is what metadata.json's PATH names. A bare
+  # `${installPath}` would fail the `bin_scan` load gate at exit 65.
+  type: archive
+  strip_components: 1
+
+# `verify`, not `off` and not `auto`: the hand-list below is then a regression
+# test rather than documentation. It is the mode that turns "upstream added a
+# fourth binary to bin/" — which buf has done before, and undid when
+# protoc-gen-buf-check-{lint,breaking} were retired — into a RED run instead of
+# a package that silently ships an executable nobody declared.
+#
+# Safe to hand-list because the set was checked across the WHOLE range and the
+# whole matrix, not just the newest release (`verify` reds every backfill on a
+# set that drifted mid-range). Replaying ocx's scan rules
+# (`ocx_lib/src/package/bin_scan.rs`: immediate entries of the PATH dirs,
+# `is_file()`, Unix exec bit / Windows `.exe .com .bat .cmd` stem) over the
+# real trees:
+#
+#   $ tar tzvf <asset> | grep '/bin/[^/]'      # v1.70.0, v1.71.0, v1.72.0
+#   -rwxr-xr-x buf/bin/buf
+#   -rwxr-xr-x buf/bin/protoc-gen-buf-breaking
+#   -rwxr-xr-x buf/bin/protoc-gen-buf-lint
+#   … identical on Linux-x86_64, Linux-aarch64, Darwin-x86_64, Darwin-arm64
+#   $ unzip -Z1 <asset> | grep 'bin/[^/]'      # v1.70.0, v1.71.0, v1.72.0
+#   buf/bin/buf.exe  buf/bin/protoc-gen-buf-breaking.exe
+#   buf/bin/protoc-gen-buf-lint.exe            # Windows-x86_64, Windows-arm64
+#
+# The set is SYMMETRIC across all six platforms, which is why there is one
+# metadata.json and no `metadata.platforms` map — the Windows `.exe` stems
+# reduce to the same three bare names the scan compares against.
+bin_scan: verify
+
+metadata:
+  # Resolves against THIS spec's directory, not the repo root. Every file this
+  # block can select is checked by the `bin_scan` load gate, and this one
+  # points PATH at a SUBDIRECTORY of `${installPath}`.
+  #
+  # No MANPATH var, and that is a decision rather than an omission: the fleet
+  # declares PATH-only across all 41 mirrors, `share/man/` holds only the
+  # `man1/` directory (the scan filters to `is_file()`, so it would contribute
+  # nothing to `binaries`), and Windows ships no `share/` at all — so a shared
+  # default file could not declare it truthfully for all six platforms without
+  # a second metadata file bought for zero interface surface.
+  default: metadata.json
+
+catalog:
+  # Also resolves against this spec's own directory, so the repo-root logo
+  # shared by every future Buf spec has to be named explicitly. CATALOG.md is
+  # found by the default probe beside this file.
+  logo: ../logo.svg
+
+versions:
+  # 1.70.0 is the floor assigned for this mirror. Asset naming is uniform from
+  # there to 1.72.0 — the three in-range releases have byte-identical asset
+  # NAME lists — so one anchored pattern per platform covers the range with no
+  # version-keyed alternatives, and every declared platform (including
+  # windows/arm64) exists at every one of them.
+  min: "1.70.0"
+  new_per_run: 5
+  # Staggered off the hour against the rest of the fleet so the mirrors don't
+  # hit the GitHub releases API in the same minute. WITHOUT this key the
+  # generated workflow has no `schedule:` trigger at all and the mirror never
+  # auto-discovers a release.
+  poll_interval: "50 */6 * * *"
+
+tests:
+  # `script:` paths resolve from the REPOSITORY ROOT, not from this spec's
+  # directory — the opposite of `metadata.default` and `catalog.*` above.
+  - name: smoke
+    script: buf/tests/smoke.star
+
+platforms:
+  # Container legs, not native ones: each image runs the same bundle under its
+  # own loader, and `(version, platform)` is green only when every leg is,
+  # which is what gates the push.
+  #
+  # ubuntu + alpine + fedora on both arches — the other half of the bare-key
+  # decision recorded above `assets:`. The alpine leg is the ONLY evidence that
+  # the empty `os.features` (a positive claim the artifact loads under any
+  # Linux userland) is honest; the two glibc images cover two distinct
+  # distributions and library sets.
+  #
+  # No `containers[].setup` anywhere, and that is measured rather than assumed:
+  # the smoke's verbs (`buf lint`, `buf build`, `buf breaking`, `buf generate`
+  # with a local plugin) shell out to nothing but the package's own bin/ —
+  # buf resolves the protoc plugins through PATH, not through git or a
+  # toolchain — so a bare image is the honest claim and provisioning anything
+  # would prove less.
+  linux/amd64:
+    runner: ubuntu-latest
+    containers:
+      - { image: "ubuntu:24.04", shell: bash }
+      - { image: "alpine:3.20",  shell: sh }
+      - { image: "fedora:40",    shell: bash }
+  linux/arm64:
+    # arm64 container legs run natively — no qemu — so the runner arch must
+    # match the platform or the renderer's guard reds the leg up front.
+    runner: ubuntu-24.04-arm
+    containers:
+      - { image: "ubuntu:24.04", shell: bash }
+      - { image: "alpine:3.20",  shell: sh }
+      - { image: "fedora:40",    shell: bash }
+  # Pass 2 — darwin. `macos-14` for BOTH slices: the Intel slice tests under
+  # Rosetta 2 on the arm64 runner. Never native `macos-13`, whose exhausted
+  # pool leaves the leg queued forever and deadlocks `push` (needs: test).
+  # darwin/amd64:
+  #   runner: macos-14
+  # darwin/arm64:
+  #   runner: macos-14
+  # Pass 3 — windows. `windows-11-arm` is native: the amd64 pool cannot execute
+  # an arm64 binary and there is no Rosetta equivalent to lean on.
+  # windows/amd64:
+  #   runner: windows-latest
+  #   shell: pwsh
+  # windows/arm64:
+  #   runner: windows-11-arm
+  #   shell: pwsh
+
+# Extra OCI annotations on every published index. `image.source` and
+# `.revision` are auto-detected from CI; the SPDX id is the Phase 1.5 verdict
+# (`gh api repos/bufbuild/buf/license --jq .license.spdx_id` → Apache-2.0),
+# independently corroborated by `buf/LICENSE` shipping inside every archive.
+annotations:
+  org.opencontainers.image.licenses: "Apache-2.0"
+
+# Logical name is spelled out, not derived from target.repository — the two are
+# related by convention only. Needs OCX_ANNOUNCE_TOKEN (an ocx-contrib org
+# secret, visibility ALL) AND a merged claim PR for `p/bufbuild/buf.json` on
+# ocx-sh/index. Before that claim lands, announce fails with exit 79
+# (`unclaimed namespace`) — expected, not a misconfiguration.
+announce:
+  package: "bufbuild/buf"
+  fork: ocx-contrib/index
