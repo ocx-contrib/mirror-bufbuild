@@ -2,39 +2,34 @@
 # DO NOT EDIT — re-run `ocx-mirror package pipeline generate ci` to update.
 # Source: buf/mirror.yml
 
-name: announce-from-registry-buf
+name: cascade-buf
 
-# The nightly push job announces what its own run published; this one announces
-# everything the registry already holds. Dispatch is always available, and
-# defaults to reporting. An operator who wants the catch-up unattended opts in
-# with `announce: { schedule: … }` in the spec — a scheduled run announces for
-# real, and a run that finds nothing new commits nothing; it opens a pull
-# request only when an earlier run stranded commits on the announce branch.
+# A cascade breaks when a push lands out of order or dies half-way. Dispatch is
+# always available, and defaults to auditing. An operator who wants the repair
+# unattended opts in with `cascade: { schedule: … }` in the spec — a scheduled
+# run repairs for real, never as a dry run.
 on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Report what would change without opening an index pull request
+        description: Report the repair plan without writing a tag or touching the index
         type: boolean
         default: true
 
 concurrency:
-  # Its own group, unlike cascade.yml's: this workflow writes index pull
-  # requests only, never registry tags, so concurrent announce writers contend
-  # on a per-package index branch — the fast-forward path is compare-and-swap
-  # with a retry, and the spent-branch reset path can drop a racing commit that
-  # the next full from-registry run re-adds. Joining the publish group would
-  # instead let a queued push cancel the pending catch-up. That coupling exists
-  # for cascade because cascade and push re-point the same rolling aliases.
-  group: mirror-${{ github.workflow }}-announce-from-registry
+  # This spec's publish group, baked in: a repair and a live push both re-point
+  # the same rolling aliases, so neither ever runs while the other is in flight.
+  # GitHub keeps one *pending* run per group, so whichever of the two is waiting
+  # is cancelled when a newer run of either workflow queues behind the live one.
+  group: mirror-buf-publish
   cancel-in-progress: false
 
 jobs:
-  announce:
+  cascade:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
+      packages: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: ocx-sh/setup-ocx@de8e3366f812941423985eaccae28663ef192e8b  # v1.3.0
@@ -55,11 +50,13 @@ jobs:
             | docker login ghcr.io \
                 -u "${{ github.actor }}" \
                 --password-stdin
-      - name: Announce every registry tag into the index
+      - name: Repair the rolling-tag cascade
         if: ${{ steps.creds.outputs.have == 'true' }}
         env:
-          # Same secret the push job carries. Absent, the announce fails
-          # loudly — unlike the push job this workflow has nothing else to do.
+          # A repaired alias points at a digest the index does not know, so a
+          # run that moved anything ends by announcing. Absent, that announce
+          # is recorded as skipped rather than failing a run whose tags already
+          # landed — the same degradation the push job has.
           OCX_ANNOUNCE_TOKEN: ${{ secrets.OCX_ANNOUNCE_TOKEN }}
           # Read through the environment, never interpolated into the script.
           # `inputs.dry_run` is empty on a schedule event, which would read as
@@ -68,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${DRY_RUN}" = "true" ]; then
-            ocx-mirror package pipeline announce --spec buf/mirror.yml --dry-run
+            ocx-mirror package pipeline cascade --spec buf/mirror.yml --dry-run
           else
-            ocx-mirror package pipeline announce --spec buf/mirror.yml
+            ocx-mirror package pipeline cascade --spec buf/mirror.yml
           fi
