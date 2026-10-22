@@ -1,0 +1,13 @@
+#:schema https://grimoire.rs/schemas/grimoire-config.schema.json
+# Seeded once by ocx-sh/conventions; the repo owns it afterwards.
+# Bundles come from the ocx lore catalog; grimoire.lock freezes their versions.
+[options]
+clients = ["claude", "codex", "opencode"]
+
+[bundles]
+docs-essentials = "ghcr.io/ocx-sh/lore/docs-essentials:latest"
+code-docs-essentials = "ghcr.io/ocx-sh/lore/code-docs-essentials:latest"
+
+[skills]
+
+[rules]

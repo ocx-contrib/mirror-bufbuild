@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+# Allowlist false positives by path or regex here, never by .gitleaksignore fingerprints.
+# gitleaks rejects an allowlist with no check, so the placeholder regex below matches nothing real;
+# replace it with your first real entry.
+[allowlist]
+description = "Repo-local allowlist for gitleaks false positives"
+# The Discord user id in ocx-mirror-generated workflows is a ping target, not a credential.
+regexTarget = "line"
+regexes = ['''OCX_MIRROR_DISCORD_USER_ID: "\d+"''']
+paths = []

@@ -1,0 +1,6 @@
+{
+  "claudeMdExcludes": [
+    "**/.claude/rules/code-docs/**",
+    "**/.claude/rules/docs-quality/**"
+  ]
+}

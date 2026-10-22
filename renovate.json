@@ -1,0 +1,1 @@
+{"$schema": "https://docs.renovatebot.com/renovate-schema.json", "extends": ["github>ocx-sh/conventions//renovate/mirror#v0.2.5", "local>ocx-contrib/mirror-bufbuild//.github/renovate-local"], "description": "ocx-baseline: template-owned file — change ocx-sh/conventions, then run task copier:update"}

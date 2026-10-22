@@ -1,0 +1,86 @@
+agent = []
+
+[metadata]
+lock_version = 1
+declaration_hash_version = 1
+declaration_hash = "sha256:16ba0f03db93c0a3aa44ac30c438ed803b6e097f2d227470b68ac97016154cc7"
+generated_by = "grim 0.14.3"
+generated_at = "2026-10-22T21:19:59Z"
+
+[[skill]]
+name = "code-docs-cleanup"
+pinned = "ghcr.io/ocx-sh/lore/code-docs-cleanup@sha256:4b312606567dab8769e98fcf9770072bc425e6f2e9d1b71a3638e9c60bcaed18"
+bundle = "ghcr.io/ocx-sh/lore/code-docs-essentials"
+bundle_tag = "latest"
+
+[[skill]]
+name = "docs-instrument"
+pinned = "ghcr.io/ocx-sh/lore/docs-instrument@sha256:fb3e1c487517dfacac9761ad95070479faa77a7a089e8fb61219dd813f92213b"
+bundle = "ghcr.io/ocx-sh/lore/docs-essentials"
+bundle_tag = "latest"
+
+[[skill]]
+name = "docs-plan"
+pinned = "ghcr.io/ocx-sh/lore/docs-plan@sha256:09751a25d1535543ac0cae1a52273ec3e1938b9db577b83509de025508757180"
+bundle = "ghcr.io/ocx-sh/lore/docs-essentials"
+bundle_tag = "latest"
+
+[[skill]]
+name = "docs-review"
+pinned = "ghcr.io/ocx-sh/lore/docs-review@sha256:e3a08c62f16489d01c00d702fc780c485d85f0cf3f22948e3d07ba09c7e0a3f4"
+bundle = "ghcr.io/ocx-sh/lore/docs-essentials"
+bundle_tag = "latest"
+
+[[rule]]
+name = "code-docs"
+pinned = "ghcr.io/ocx-sh/lore/code-docs@sha256:0f0e026af937583e31a597a7d6b98b352ac7fefda15dd2e2c000ec31f857883a"
+bundle = "ghcr.io/ocx-sh/lore/code-docs-essentials"
+bundle_tag = "latest"
+
+[[rule]]
+name = "docs-quality"
+pinned = "ghcr.io/ocx-sh/lore/docs-quality@sha256:065355e0be2ce30d340c71b57bb10c5360a954a166023199535cedee56cee96c"
+bundle = "ghcr.io/ocx-sh/lore/docs-essentials"
+bundle_tag = "latest"
+
+[[bundle]]
+name = "code-docs-essentials"
+repo = "ghcr.io/ocx-sh/lore/code-docs-essentials"
+tag = "latest"
+pinned = "ghcr.io/ocx-sh/lore/code-docs-essentials@sha256:183da12123e068eb066bd211bd837e4a8fcd5f2de1f1db222b3c34e0b740039a"
+
+[[bundle.member]]
+kind = "skill"
+name = "code-docs-cleanup"
+id = "ghcr.io/ocx-sh/lore/code-docs-cleanup:latest"
+
+[[bundle.member]]
+kind = "rule"
+name = "code-docs"
+id = "ghcr.io/ocx-sh/lore/code-docs:latest"
+
+[[bundle]]
+name = "docs-essentials"
+repo = "ghcr.io/ocx-sh/lore/docs-essentials"
+tag = "latest"
+pinned = "ghcr.io/ocx-sh/lore/docs-essentials@sha256:21469c134d44ace8bc6f0d2468aadb972394c29aaf0deb0d52b33636832abb6d"
+
+[[bundle.member]]
+kind = "skill"
+name = "docs-instrument"
+id = "ghcr.io/ocx-sh/lore/docs-instrument:latest"
+
+[[bundle.member]]
+kind = "skill"
+name = "docs-plan"
+id = "ghcr.io/ocx-sh/lore/docs-plan:latest"
+
+[[bundle.member]]
+kind = "skill"
+name = "docs-review"
+id = "ghcr.io/ocx-sh/lore/docs-review:latest"
+
+[[bundle.member]]
+kind = "rule"
+name = "docs-quality"
+id = "ghcr.io/ocx-sh/lore/docs-quality:latest"
