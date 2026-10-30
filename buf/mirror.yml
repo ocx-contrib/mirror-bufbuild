@@ -248,14 +248,14 @@ platforms:
       - { image: "ubuntu:24.04", shell: bash }
       - { image: "alpine:3.20",  shell: sh }
       - { image: "fedora:40",    shell: bash }
-  # `macos-14` for BOTH slices: the Intel slice tests under Rosetta 2 on the
+  # `macos-15` for BOTH slices: the Intel slice tests under Rosetta 2 on the
   # arm64 runner. Never native `macos-13`, whose exhausted pool leaves the leg
   # queued forever and deadlocks `push` (needs: test). No `containers:` — a
   # non-Linux platform with container legs is rejected at spec load.
   darwin/amd64:
-    runner: macos-14
+    runner: macos-15
   darwin/arm64:
-    runner: macos-14
+    runner: macos-15
   # `windows-11-arm` is native: the amd64 pool cannot execute an arm64 binary
   # and there is no Rosetta equivalent to lean on.
   windows/amd64:

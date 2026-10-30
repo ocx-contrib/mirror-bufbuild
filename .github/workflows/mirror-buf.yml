@@ -141,7 +141,7 @@ jobs:
         include:
           - platform: darwin/amd64
             platform_slug: darwin_amd64
-            runner: macos-14
+            runner: macos-15
             container_id: _native_
             shell: bash
             tests:
@@ -150,7 +150,7 @@ jobs:
                 script: buf/tests/smoke.star
           - platform: darwin/arm64
             platform_slug: darwin_arm64
-            runner: macos-14
+            runner: macos-15
             container_id: _native_
             shell: bash
             tests:
